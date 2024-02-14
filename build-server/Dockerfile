@@ -10,6 +10,7 @@ RUN apt-get install git -y
 
 WORKDIR /home/app
 
+COPY .env .env
 COPY main.sh main.sh
 COPY script.js script.js
 COPY package*.json .
