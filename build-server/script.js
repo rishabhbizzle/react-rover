@@ -16,7 +16,7 @@ const s3Client = new S3Client({
     }
 })
 const PROJECT_ID = process.env.PROJECT_ID
-const type = process.env.TYPE || 'vite'
+const type = process.env.TYPE
 
 function publishLog(log, type, step) {
     publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify({ log, type, step }))
@@ -25,6 +25,7 @@ function publishLog(log, type, step) {
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit
 
 async function init() {
+    return new Promise((resolve, reject) => {
         console.log('Executing script.js');
         publishLog('Build Started... 👷‍♂️', "success", "build");
         const outDirPath = path.join(__dirname, 'output');
@@ -43,9 +44,10 @@ async function init() {
 
         p.on('close', async function (code) {
             if (code !== 0) {
-                console.error('Build failed with exit code', code);
                 publishLog(`Build failed with exit code ${code}`, "error", "build");
-                throw new Error(`Build failed with exit code ${code}`);
+                console.log('Build failed with exit code', code);
+                reject(new Error(`Build failed with exit code ${code}`));
+                return; // Exit the function early
             }
 
             console.log('Build Complete');
@@ -53,7 +55,6 @@ async function init() {
             try {
                 const distFolderPath = path.join(__dirname, 'output', type === "cra" ? 'build' : 'dist');
                 const distFolderContents = fs.readdirSync(distFolderPath, { recursive: true });
-
                 publishLog(`Deploying Project...`, "success", "deploy");
                 for (const file of distFolderContents) {
                     console.log('Uploading', file);
@@ -64,7 +65,8 @@ async function init() {
                     if (fileSize > MAX_FILE_SIZE_BYTES) {
                         console.error(`File ${file} exceeds size limit`);
                         publishLog(`File ${file} exceeds size limit`, "error", "deploy");
-                        throw new Error(`File ${file} exceeds size limit`);
+                        reject(new Error(`File ${file} exceeds size limit`));
+                        return; // Exit the function early
                     }
 
                     console.log('uploading', filePath);
@@ -77,27 +79,34 @@ async function init() {
                         ContentType: mime.lookup(filePath)
                     });
 
-                    try {
                         await s3Client.send(command);
                         console.log('uploaded', filePath);
-                    } catch (error) {
-                        console.error('Error uploading file:', error);
-                        publishLog(`Error uploading file ${file}: ${error.message}`, "error", "deploy");
-                        throw error; // Re-throw error to propagate to the main try-catch block
-                    }
                 }
                 publishLog(`Deployed Successfully...`, "success", "deploy");
                 console.log('Done...');
+                resolve(); // Resolve the promise when all operations are complete
             } catch (error) {
-                console.error('Deployment error:', error);
-                publishLog(`Deployment error: ${error.message}`, "error", "deploy");
-                throw error; // Re-throw error to propagate to the main try-catch block
+                console.log('Deployment error:', error);
+                reject(error); // Reject with the error
             }
-            publishLog(`Your Project is Live... 🎉`, "success", "deploy");
-            publisher.disconnect();
         });
-
+    });
 }
 
 
 init()
+    .then(() => {
+        console.log('Done!!!!');
+        publishLog(`Your Project is now live...🎉`, "success", "deploy");
+        setTimeout(() => {
+            process.exit(0);
+        }, 5000);
+    })
+    .catch((error) => {
+        publishLog(`Error: ${error.message}`, "error", "deploy");
+        console.error('Error:', error);
+        setTimeout(() => {
+            process.exit(0);
+        }, 5000);
+    });
+  
