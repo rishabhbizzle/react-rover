@@ -17,13 +17,24 @@ enum DeployementStatus {
   FAIL
 }
 
-
 model Deployement {
   id        String            @id @default(uuid())
   projectId String            @map("project_id")
   gitUrl    String            @map("git_url")
   status    DeployementStatus @default(QUEUED)
   userId    String            @map("user_id")
+  Log       Log[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Log {
+  id            String      @id @default(uuid())
+  deployementId String      @map("deployement_id")
+  deployement   Deployement @relation(fields: [deployementId], references: [id])
+  logMessage    String      @map("log_message")
+  type          String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
