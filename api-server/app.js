@@ -42,13 +42,13 @@ app.use(cors())
 
 
 app.post('/project', async (req, res) => {
-    const { gitURL, slug, type, userId } = req.body
-    if (!gitURL || !userId) return res.status(400).json({ status: 'error', message: 'gitURL is required' })
+    const { gitURL, domain, type, userId } = req.body
+    if (!gitURL) return res.status(400).json({ status: 'error', message: 'gitURL is required' })
     if (!type && type !== 'vite' && type !== 'cra') return res.status(400).json({ status: 'error', message: 'Invalid type' })
-    const projectSlug = slug ? slug : generateSlug()
+    const projectSlug = domain ? domain : generateSlug()
 
     // check if project exists
-    const project = await prisma.project.findFirst({
+    const project = await prisma.deployement.findFirst({
         where: {
             projectId: projectSlug
         }
@@ -56,7 +56,7 @@ app.post('/project', async (req, res) => {
 
     if (project && project.userId !== userId) return res.status(400).json({ status: 'error', message: 'Project with this Domain already exists. Please use another one' })
 
-    await prisma.deployement.create({
+    const deployment = await prisma.deployement.create({
         data: {
             projectId: projectSlug,
             gitUrl: gitURL,
@@ -83,7 +83,8 @@ app.post('/project', async (req, res) => {
                     environment: [
                         { name: 'GIT_REPOSITORY__URL', value: gitURL },
                         { name: 'PROJECT_ID', value: projectSlug },
-                        { name: 'TYPE', value: type }
+                        { name: 'TYPE', value: type },
+                        { name: 'DEPLOYMENT_ID', value: deployment.id }
                     ]
                 }
             ]
