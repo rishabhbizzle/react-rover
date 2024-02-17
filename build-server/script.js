@@ -17,9 +17,10 @@ const s3Client = new S3Client({
 })
 const PROJECT_ID = process.env.PROJECT_ID
 const type = process.env.TYPE
+const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID
 
 function publishLog(log, type, step) {
-    publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify({ log, type, step }))
+    publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify({ log, type, step, projectId: PROJECT_ID, deploymentId: DEPLOYMENT_ID }))
 }
 
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB limit
