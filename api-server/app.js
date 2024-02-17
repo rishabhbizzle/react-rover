@@ -1,19 +1,21 @@
 const express = require('express')
 const { generateSlug } = require('random-word-slugs')
 const { ECSClient, RunTaskCommand } = require('@aws-sdk/client-ecs')
-const { default: mongoose } = require('mongoose')
 require('dotenv').config()
 const { Server } = require('socket.io')
 const Redis = require('ioredis')
 const cors = require('cors');
-
+const http = require('http');
+const { PrismaClient } = require('@prisma/client')
 
 const app = express()
-const PORT = 9000
-
+const PORT = process.env.PORT || 9000
+const server = http.createServer(app);
 const subscriber = new Redis(process.env.REDIS_URI)
+const io = new Server(server, { cors: '*' })
+const prisma = new PrismaClient({})
 
-const io = new Server({ cors: '*' })
+
 
 io.on('connection', socket => {
     socket.on('subscribe', channel => {
@@ -21,12 +23,6 @@ io.on('connection', socket => {
         socket.emit('message', `Joined ${channel}`)
     })
 })
-
-io.listen(9002, () => console.log('Socket Server 9002'))
-
-// mongoose.connect(process.env.MONGO_URI)
-// .then(() => console.log('Connected to MongoDB'))
-// .catch(err => console.log(err))
 
 const ecsClient = new ECSClient({
     region: 'us-east-1',
@@ -42,17 +38,31 @@ const config = {
 }
 
 app.use(express.json())
-app.use(cors())  
+app.use(cors())
 
 
 app.post('/project', async (req, res) => {
-    const { gitURL, slug, type } = req.body
-
-    if (!gitURL) return res.status(400).json({ status: 'error', message: 'gitURL is required' })
+    const { gitURL, slug, type, userId } = req.body
+    if (!gitURL || !userId) return res.status(400).json({ status: 'error', message: 'gitURL is required' })
     if (!type && type !== 'vite' && type !== 'cra') return res.status(400).json({ status: 'error', message: 'Invalid type' })
-
-    console.log(gitURL, slug)
     const projectSlug = slug ? slug : generateSlug()
+
+    // check if project exists
+    const project = await prisma.project.findFirst({
+        where: {
+            projectId: projectSlug
+        }
+    })
+
+    if (project && project.userId !== userId) return res.status(400).json({ status: 'error', message: 'Project with this Domain already exists. Please use another one' })
+
+    await prisma.deployement.create({
+        data: {
+            projectId: projectSlug,
+            gitUrl: gitURL,
+            userId
+        },
+      })
 
     const command = new RunTaskCommand({
         cluster: config.CLUSTER,
@@ -73,7 +83,7 @@ app.post('/project', async (req, res) => {
                     environment: [
                         { name: 'GIT_REPOSITORY__URL', value: gitURL },
                         { name: 'PROJECT_ID', value: projectSlug },
-                        { name: 'TYPE', value: type ? type : 'vite'}
+                        { name: 'TYPE', value: type }
                     ]
                 }
             ]
@@ -95,4 +105,6 @@ async function initRedisSubscribe() {
 
 initRedisSubscribe()
 
-app.listen(PORT, () => console.log(`API Server Running..${PORT}`))
+server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
