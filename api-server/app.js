@@ -112,8 +112,12 @@ app.get('/deployments/:userId', async (req, res) => {
                 userId
             },
             include: {
-                Log: true 
-              },
+                Log: {
+                    orderBy: {
+                        createdAt: 'asc' 
+                    }
+                }
+            },
             orderBy: {
                 createdAt: 'desc'
             }
@@ -135,12 +139,12 @@ async function initRedisSubscribe() {
         // create a log
         await prisma.log.create({
             data: {
-                deployementId:deploymentId,
+                deployementId: deploymentId,
                 logMessage,
                 type,
             }
         })
-        if (type === 'error'){
+        if (type === 'error') {
             await prisma.deployement.update({
                 where: {
                     id: deploymentId
@@ -150,7 +154,7 @@ async function initRedisSubscribe() {
                 }
             })
         }
-        if (logMessage == 'Deployed Successfully...'){
+        if (logMessage == 'Deployed Successfully...') {
             await prisma.deployement.update({
                 where: {
                     id: deploymentId
