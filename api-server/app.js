@@ -93,7 +93,7 @@ app.post('/project', async (req, res) => {
         })
 
         await ecsClient.send(command);
-        return res.json({ status: 'queued', data: { projectSlug, url: `http://${projectSlug}.vercel-clone-env.eba-rcwzsec3.ap-south-1.elasticbeanstalk.com` } })
+        return res.json({ status: 'queued', data: { projectSlug, url: `https://${projectSlug}.reactrover.tech` } })
     } catch (error) {
         console.log(error)
         return res.status(500).json({ status: 'error', message: error.message })
@@ -140,6 +140,26 @@ async function initRedisSubscribe() {
                 type,
             }
         })
+        if (type === 'error'){
+            await prisma.deployement.update({
+                where: {
+                    id: deploymentId
+                },
+                data: {
+                    status: 'FAIL'
+                }
+            })
+        }
+        if (logMessage == 'Deployed Successfully...'){
+            await prisma.deployement.update({
+                where: {
+                    id: deploymentId
+                },
+                data: {
+                    status: 'READY'
+                }
+            })
+        }
     })
 }
 
