@@ -43,7 +43,7 @@ app.use(cors())
 
 app.post('/project', async (req, res) => {
     try {
-        const { gitURL, domain, type, userId } = req.body
+        const { gitURL, domain, type, userId, envVariables } = req.body
         if (!gitURL) return res.status(400).json({ status: 'error', message: 'gitURL is required' })
         if (!type && type !== 'vite' && type !== 'cra') return res.status(400).json({ status: 'error', message: 'Invalid type' })
         const projectSlug = domain ? domain : generateSlug()
@@ -85,7 +85,8 @@ app.post('/project', async (req, res) => {
                             { name: 'GIT_REPOSITORY__URL', value: gitURL },
                             { name: 'PROJECT_ID', value: projectSlug },
                             { name: 'TYPE', value: type },
-                            { name: 'DEPLOYMENT_ID', value: deployment.id }
+                            { name: 'DEPLOYMENT_ID', value: deployment.id },
+                            { name: 'ENV_VARIABLES', value: JSON.stringify(envVariables)}
                         ]
                     }
                 ]

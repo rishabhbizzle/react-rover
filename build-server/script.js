@@ -18,6 +18,8 @@ const s3Client = new S3Client({
 const PROJECT_ID = process.env.PROJECT_ID
 const type = process.env.TYPE
 const DEPLOYMENT_ID = process.env.DEPLOYMENT_ID
+const envVariables = process.env.ENV_VARIABLES
+console.log('envVariables', envVariables, typeof envVariables)
 
 function publishLog(log, type, step) {
     publisher.publish(`logs:${PROJECT_ID}`, JSON.stringify({ log, type, step, projectId: PROJECT_ID, deploymentId: DEPLOYMENT_ID }))
@@ -29,7 +31,20 @@ async function init() {
     return new Promise((resolve, reject) => {
         console.log('Executing script.js');
         publishLog('Build Started... 👷‍♂️', "success", "build");
+        
         const outDirPath = path.join(__dirname, 'output');
+        if (envVariables) {
+            console.log('Setting up env variables...');
+            publishLog('Setting up env variables...', "success", "build");
+            // Set up environment variables
+            let formattedEnvVariables = JSON.parse(envVariables).map(({ key, value }) => `${key}=${value}`).join('\n');
+            // Define the file path for the .env file
+            const filePath = path.join(outDirPath, '.env');
+            // Write environment variables to .env file
+            fs.writeFileSync(filePath, formattedEnvVariables);
+            console.log('.env file has been created successfully.');
+        }
+
 
         const p = exec(`cd ${outDirPath} && npm install && npm run build`);
 
@@ -80,8 +95,8 @@ async function init() {
                         ContentType: mime.lookup(filePath)
                     });
 
-                        await s3Client.send(command);
-                        console.log('uploaded', filePath);
+                    await s3Client.send(command);
+                    console.log('uploaded', filePath);
                 }
                 publishLog(`Deployed Successfully...`, "success", "deploy");
                 console.log('Done...');
@@ -110,4 +125,4 @@ init()
             process.exit(0);
         }, 5000);
     });
-  
+
